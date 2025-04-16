@@ -93,12 +93,9 @@ metro_data = {
 }
 
 def get_all_stations():
-    """Get list of all stations across all lines"""
-    return [station for line in metro_data.values() for station in line]
-
-def validate_station(input_station, all_stations):
-    """Check if input station exists in metro network"""
-    return input_station.title() in all_stations
+    """Get sorted list of all unique stations"""
+    stations = list(set([station for line in metro_data.values() for station in line]))
+    return sorted(stations)
 
 def get_route_response(source, destination):
     """Get route response from Gemini"""
@@ -126,69 +123,81 @@ def get_route_response(source, destination):
     return response.text
 
 # Streamlit UI Configuration
-st.set_page_config(page_title="Delhi Metro Navigator", page_icon="🚇")
+st.set_page_config(page_title="Delhi Metro Navigator", page_icon="🚇", layout="wide")
 
 # App Interface
 st.title("Delhi Metro Route Planner 🚇")
 st.markdown("### AI-Powered Metro Navigation for Delhi NCR")
 
+# Get sorted list of stations
+all_stations = get_all_stations()
+
+# Station Selection
 col1, col2 = st.columns(2)
 with col1:
-    source = st.text_input("Starting Station:", help="Enter your starting metro station")
+    source = st.selectbox(
+        "Starting Station:",
+        options=all_stations,
+        index=all_stations.index('Kashmere Gate') if 'Kashmere Gate' in all_stations else 0,
+        help="Select your starting station"
+    )
 with col2:
-    destination = st.text_input("Destination Station:", help="Enter your destination metro station")
+    destination = st.selectbox(
+        "Destination Station:",
+        options=[s for s in all_stations if s != source],
+        index=0,
+        help="Select your destination station"
+    )
 
-if st.button("Plan My Journey", type="primary"):
-    if not source or not destination:
-        st.warning("Please enter both source and destination stations")
+# Route Planning
+if st.button("Plan My Journey", type="primary", use_container_width=True):
+    if source == destination:
+        st.error("🚨 Source and Destination cannot be the same! Please select different stations.")
     else:
-        all_stations = get_all_stations()
-        valid_source = validate_station(source, all_stations)
-        valid_dest = validate_station(destination, all_stations)
-        
-        if not valid_source:
-            st.error(f"🚨 Station not found: {source}. Check spelling or station name.")
-        elif not valid_dest:
-            st.error(f"🚨 Station not found: {destination}. Check spelling or station name.")
-        else:
-            with st.spinner("🚀 Finding optimal route..."):
-                try:
-                    result = get_route_response(source.title(), destination.title())
-                    st.success("🎉 Here's Your Optimal Route:")
-                    st.markdown("---")
-                    st.markdown(result, unsafe_allow_html=True)
-                    st.markdown("---")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"⚠️ Error generating route: {str(e)}")
+        with st.spinner("🚀 Finding optimal route..."):
+            try:
+                result = get_route_response(source, destination)
+                st.success("🎉 Here's Your Optimal Route:")
+                st.markdown("---")
+                st.markdown(result, unsafe_allow_html=True)
+                st.markdown("---")
+                st.balloons()
+            except Exception as e:
+                st.error(f"⚠️ Error generating route: {str(e)}")
 
 # Sidebar Information
-st.sidebar.header("About")
-st.sidebar.info("""This AI-powered planner helps navigate Delhi Metro's extensive network covering:
-- 12 Metro Lines
-- 285+ Stations
-- 390+ km Network Length""")
-
-st.sidebar.markdown("**Supported Lines:**")
-st.sidebar.markdown("""
-- Red Line
-- Yellow Line
-- Blue Line
-- Green Line
-- Violet Line
-- Pink Line
-- Magenta Line
-- Grey Line
-- Airport Express
-- Rapid Metro
-- Aqua Line""")
-
-st.sidebar.markdown("---")
-st.sidebar.warning("""**Note:** 
-- Verify with official DMRC sources before travel
-- Station names are case-insensitive
-- Allow 5-10 minutes for transfers""")
+with st.sidebar:
+    st.header("ℹ️ About")
+    st.markdown("""
+    **Delhi Metro Navigator** helps you:
+    - Find optimal routes across 12 metro lines
+    - Discover transfer points and travel times
+    - Navigate 390+ km network efficiently
+    """)
+    
+    st.markdown("---")
+    st.subheader("🚇 Metro Lines Supported")
+    st.markdown("""
+    - Red Line
+    - Yellow Line
+    - Blue Line
+    - Green Line
+    - Violet Line
+    - Pink Line
+    - Magenta Line
+    - Grey Line
+    - Airport Express
+    - Rapid Metro
+    - Aqua Line""")
+    
+    st.markdown("---")
+    st.warning("""
+    **Important Notes:**
+    - Always verify with official DMRC sources
+    - Allow 5-10 minutes for transfers
+    - Station names are case-insensitive
+    - First/last train timings may affect routes""")
 
 # Footer
 st.markdown("---")
-st.markdown("*Powered by Gemini AI • Data sources: DMRC Network Map*")
+st.caption("Powered by Google Gemini AI • Data Source: Delhi Metro Rail Corporation (DMRC) • Updated: 2024-01-01")
